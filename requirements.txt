@@ -1,0 +1,8 @@
+streamlit
+langchain
+cohere
+pinecone-client
+bs4
+requests
+PyPDF2
+python-docx

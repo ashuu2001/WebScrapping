@@ -47,6 +47,10 @@ if 'conversation' not in st.session_state:
     st.session_state['conversation'] = None
 if 'messages' not in st.session_state:
     st.session_state['messages'] = []
+if 'last_question' not in st.session_state:
+    st.session_state['last_question'] = None
+if 'last_response' not in st.session_state:
+    st.session_state['last_response'] = None
 
 # Function to handle chatbot responses
 def getresponse(user_input):
@@ -61,11 +65,30 @@ def getresponse(user_input):
             memory=ConversationSummaryMemory(llm=llm)
         )
 
+    # Check if the user is asking about their last question or response
+    if user_input.lower() in ["what was my last question?", "last question?"]:
+        if st.session_state['last_question']:
+            return f"Your last question was: '{st.session_state['last_question']}'"
+        else:
+            return "You haven't asked any questions yet."
+    
+    if user_input.lower() in ["what was the output of my last question?", "last output?"]:
+        if st.session_state['last_response']:
+            return f"The output of your last question was: '{st.session_state['last_response']}'"
+        else:
+            return "I haven't provided any responses yet."
+
+    # Save the current question as the last question
+    st.session_state['last_question'] = user_input
+
+    # Fetch context from Pinecone and integrate it into the user input
     context = fetch_all_from_pinecone(pinecone_index, generate_embeddings(user_input))
     if context:
         user_input = f"Context: {context}\nQuestion: {user_input}"
 
+    # Generate response using the conversation model
     response = st.session_state['conversation'].predict(input=user_input)
+    st.session_state['last_response'] = response  # Save the response as the last response
     return response
 
 # Chat UI

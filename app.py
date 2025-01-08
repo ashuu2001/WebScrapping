@@ -1,3 +1,4 @@
+# Updated app.py
 import streamlit as st
 from backend.pinecone_utils import initialize_pinecone, fetch_all_from_pinecone, store_in_pinecone
 from backend.data_scraper import scrape_website
@@ -11,24 +12,28 @@ from streamlit_chat import message
 
 # Streamlit UI Configuration
 st.set_page_config(page_title="Chatbot", page_icon=":robot_face:")
-st.title("Chatbot 🤖")
+st.title("Web & Files Chatbot 🤖")
 
 # Initialize Pinecone and other configurations
 pinecone_index = initialize_pinecone()
 
-# Sidebar for Data Upload & Web Scraping
+# Sidebar for Data Input
 st.sidebar.header("Data Input")
 uploaded_files = st.sidebar.file_uploader("Upload Files (PDF, DOCX, TXT)", type=["pdf", "docx", "txt"], accept_multiple_files=True)
-scrape_button = st.sidebar.button("Scrape Data from VKAPS")
+
+# Web Scraping Input
+st.sidebar.subheader("Web Scraping")
+website_url = st.sidebar.text_input("Enter Website URL")
+scrape_button = st.sidebar.button("Scrape Website")
 
 # Scraping Functionality
-if scrape_button:
-    scraped_content = scrape_website("https://vkaps.com/")
+if scrape_button and website_url:
+    scraped_content = scrape_website(website_url)
     if scraped_content:
-        store_in_pinecone(scraped_content, "vkaps_scraped_data", pinecone_index)
-        st.sidebar.success("Data from VKAPS website scraped and stored successfully!")
+        store_in_pinecone(scraped_content, "scraped_data", pinecone_index)
+        st.sidebar.success("Data from the website scraped and stored successfully!")
     else:
-        st.sidebar.error("Failed to scrape data from VKAPS.")
+        st.sidebar.error("Failed to scrape data from the website.")
 
 # File Upload Handling
 if uploaded_files:
@@ -45,12 +50,10 @@ if 'messages' not in st.session_state:
 
 # Function to handle chatbot responses
 def getresponse(user_input):
-    # Check if the conversation is initialized in session state and is not a list
     if isinstance(st.session_state['conversation'], list):
         st.session_state['conversation'] = None  # Reset if it's mistakenly set as a list
 
     if st.session_state['conversation'] is None:
-        # Initialize the conversation chain with an LLM and memory
         llm = LangCohere(temperature=0, model="command-xlarge-nightly")
         st.session_state['conversation'] = ConversationChain(
             llm=llm,
@@ -58,15 +61,12 @@ def getresponse(user_input):
             memory=ConversationSummaryMemory(llm=llm)
         )
 
-    # Add context from Pinecone (if available)
     context = fetch_all_from_pinecone(pinecone_index, generate_embeddings(user_input))
     if context:
         user_input = f"Context: {context}\nQuestion: {user_input}"
 
-    # Ensure we're calling the predict method on the ConversationChain object
     response = st.session_state['conversation'].predict(input=user_input)
     return response
-
 
 # Chat UI
 response_container = st.container()
